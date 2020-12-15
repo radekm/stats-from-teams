@@ -1,11 +1,9 @@
 package cz.radekm.analyzer
 
 import cz.radekm.msTeams._
-import io.circe.generic.extras.auto._
-import io.circe.syntax._
 import monix.eval.Task
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Paths
 
 object SaveConversationsToJson {
   def downloadChannel(client: TeamsClient, channel: Teams.Channel): Task[ChannelWithMessages] =
@@ -41,11 +39,6 @@ object SaveConversationsToJson {
       _ <- Task { println("Conversations downloaded") }
     } yield AllConversations(channelsWithMessages, chatsWithMessages)
 
-  def saveToFile(file: Path, conversations: AllConversations): Task[Unit] = Task {
-    val json = conversations.asJson.spaces4
-    Files.writeString(file, json)
-  }
-
   def main(args: Array[String]): Unit = {
     if (args.size < 1)
       sys.error("Must have at least one argument: appId")
@@ -56,7 +49,7 @@ object SaveConversationsToJson {
     val program = for {
       client <- TeamsClient.make(appId)
       conversations <- downloadAllConversations(client)
-      _ <- saveToFile(Paths.get(outputFile), conversations)
+      _ <- Json.saveToFile(Paths.get(outputFile), conversations)
     } yield ()
 
     import monix.execution.Scheduler.Implicits.global
