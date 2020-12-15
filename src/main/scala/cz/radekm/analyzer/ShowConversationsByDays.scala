@@ -2,6 +2,7 @@ package cz.radekm.analyzer
 
 import cz.radekm.msTeams.{@@, TaggingExts, Teams}
 import monix.eval.Task
+import org.jsoup.Jsoup
 
 import java.nio.file.Paths
 import java.time.{LocalDate, ZoneId}
@@ -49,6 +50,31 @@ object ShowConversationsByDays {
     chats = conversations.chats.flatMap(retainByPredicateForChat(predicate))
   )
 
+  def summary(m: Teams.Message): String = {
+    val origText = m.body match {
+      case Teams.Message.Html(data) => Jsoup.parse(data).text()
+      case Teams.Message.Text(data) => data
+    }
+    val text = origText
+      // Normalize spaces (eg. convert no breaking spaces to normal spaces).
+      .map(c => if (c.isSpaceChar) ' ' else c)
+      .replaceAll("\\s+", " ")
+      .trim
+    m.subject.fold(text)(subject => s"($subject) $text").take(200)
+  }
+
+  def printMessageWithReplies(m: MessageWithReplies): Task[Unit] = Task {
+    println("● " + summary(m.message))
+    m.replies.foreach { reply =>
+      println("  ⮑  " + summary(reply))
+    }
+  }
+
+  def printConversations(conversations: AllConversations): Task[Unit] =
+    Task.traverse(conversations.channels.flatMap(_.messages) ++ conversations.chats.flatMap(_.messages))(
+      printMessageWithReplies
+    ).map(_ => ())
+
   def main(args: Array[String]): Unit = {
     val userId = args.headOption.getOrElse(sys.error("User id not defined")).tagWith["User"]
     val from = LocalDate.parse(args.drop(1).headOption.getOrElse(sys.error("From not defined")))
@@ -67,10 +93,9 @@ object ShowConversationsByDays {
         val predicate = messagePredicate(userId, day)
         day -> retainByPredicateForConversations(predicate)(conversations)
       }
-      _ <- Task.traverse(perDay) { case (day, conversations) => Task {
-        println(s"Day $day =============")
-        println(conversations)
-      } }
+      _ <- Task.traverse(perDay) { case (day, conversations) =>
+        Task { println(s"\n==== Day $day " + "=".repeat(40)) }.flatMap(_ => printConversations(conversations))
+      }
     } yield ()
 
     import monix.execution.Scheduler.Implicits.global

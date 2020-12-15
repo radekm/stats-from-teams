@@ -10,6 +10,7 @@ libraryDependencies ++= Seq(
   "io.monix" %% "monix" % "3.3.0",
   "com.microsoft.azure" % "msal4j" % "1.8.0",
   "com.microsoft.graph" % "microsoft-graph-beta" % "0.1.0-SNAPSHOT",
+  "org.jsoup" % "jsoup" % "1.13.1",
   "org.slf4j" % "slf4j-nop" % "1.8.0-beta4",
 )
 
